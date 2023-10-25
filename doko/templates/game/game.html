@@ -1,0 +1,109 @@
+{% extends "_shared_layout.html" %}
+{% block main_content %}
+
+<!-- 
+    Control flow: stack longpolls. When not my turn, just update stack. If my turn: send myturnevent.
+    myturnevent: hand listens to this. and makes call to enable valid plays.
+    play card: makes play call. return deactivaes handcards again
+    if stack is full: clear it. no tsure how
+
+    events: https://alpinejs.dev/essentials/events#listening-for-simple-events
+
+Layout is just a stupid grid for now. No crazy layers in z yet.
+
+   1  2  3  4  5  6  7  8  9  10 11 12
+  ┌──┬──┬──┬──┬──┬──┬──┬──┬──┬──┬──┬──┐
+1 │  │  │  │  │  │p │p │  │  │  │  │  │
+  ├──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┤
+2 │  │  │  │  │  │  │  │  │  │  │  │  │
+  ├──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┤
+3 │  │  │  │s │s │s │s │s │s │  │  │  │
+  ├──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┤
+4 │  │  │  │s │s │s │s │s │s │  │  │  │
+  ├──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┤
+5 │p │  │  │s │s │s │s │s │s │  │  │p │
+  ├──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┤
+6 │  │  │  │s │s │s │s │s │s │  │  │  │
+  ├──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┤
+7 │  │  │  │s │s │s │s │s │s │  │  │  │
+  ├──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┤
+8 │  │  │  │  │  │  │  │  │  │  │  │  │
+  ├──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┤
+9 │  │  │  │h │h │h │h │h │h │  │  │  │
+  ├──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┤
+10│  │  │  │h │h │h │h │h │h │  │  │  │
+  ├──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┤
+11│  │  │  │h │h │h │h │h │h │  │  │  │
+  ├──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┤
+12│  │  │  │h │h │h │h │h │h │  │  │  │
+  └──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┘
+-->
+
+
+<!--somewhere poll for availability of all player and send event of it. then listen to this event on player name and on main. update the players availability. And put up modal if waiting. alpine watch might also be good enough-->
+<div 
+  id="game"
+  class="flex-auto pt-10 h-full grid grid-cols-12 grid-rows-12 gap-1"
+  hx-ext="sse"
+  sse-connect="/game/{{game_id}}/sse/"
+  >
+
+    <!-- player left -->
+    <div class=" col-span-1 row-span-1 col-start-1 row-start-5 text-left text-white text-2xl">
+        {{player1}} <!-- todo: ,{online}, {playing right now...} -->
+    </div>
+    <!-- player top -->
+    <div class="col-span-2 col-start-6 row-start-1 text-center text-white text-2xl">
+        {{player2}} <!-- todo: ,{online}, {playing right now...} -->
+    </div>
+    <!-- player right -->
+    <div class="col-span-1 row-span-1 col-start-12 row-start-5 text-right text-white text-2xl">
+        {{player3}} <!-- todo: ,{online}, {playing right now...} -->
+    </div>
+    <!-- hand -->
+    <div class="bg-slate-100 col-span-12 row-span-5 col-start-1 row-start-9">
+      <div 
+        class="list-group sortableplayhand grid grid-cols-10 gap-1 h-full" 
+        id="hand"
+        data-game-id="{{game_id}}"
+        hx-get="/game/{{game_id}}/hand/"
+        hx-trigger="sse:turn_changed, load" 
+      >
+      </div>
+    </div>
+    <!-- stack -->
+    <div class="bg-slate-100 col-span-6 row-span-5 col-start-4 row-start-3">
+      <div
+        id="stack"
+        class="h-full"
+        hx-get="/game/{{game_id}}/stack/"
+        hx-trigger="sse:card_played, load" 
+        hx-target="#stack-form"
+      >
+        <form 
+          class="list-group grid grid-cols-5 gap-4 h-full" 
+          id="stack-form"
+          hx-post="/game/{{game_id}}/card/" 
+          hx-trigger="add"
+          hx-swap="none"
+        >
+        </form>
+      </div>
+
+    </div>
+    <!-- last stack
+    <div class="bg-slate-100 opacity-60 col-span-2 row-span-2 col-start-1 row-start-1">
+    </div> -->
+    <div
+      hx-get="/game_review/{{game_id}}/"
+      hx-trigger="sse:game_closed" 
+      hx-target="#body"
+      hx-swap="outerHTML"
+      hx-push-url="/game_review/{{game_id}}/"
+      >
+  </div>
+</div>
+
+
+
+{% endblock %}

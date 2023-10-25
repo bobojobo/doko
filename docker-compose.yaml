@@ -1,0 +1,38 @@
+version: '3.9'
+services:
+  db:
+    container_name: db
+    image: postgres:14.5
+    restart: always
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_PASSWORD: "password"
+      POSTGRES_DB: "doko"
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 1s
+      timeout: 5s
+      retries: 10
+  doko:
+    image: doko
+    build:
+      context: .
+      dockerfile: dockerfile
+    env_file:
+      - .env
+    volumes:
+      - code:/doko/doko
+    depends_on:
+      - db
+    command: ["uvicorn", "doko.main:app", "--host", "0.0.0.0", "--port", "8081", "--reload"]
+    ports: 
+      - "8080:8081"
+
+volumes:
+  code:
+    driver: local
+    driver_opts:
+      type: none
+      device: ./doko
+      o: bind

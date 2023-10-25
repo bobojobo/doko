@@ -1,0 +1,92 @@
+{% extends "_shared_layout.html" %}
+{% block main_content %}
+
+
+<div id="login" class = "fade-in pt-10 flex justify-center items-center" fade-in >
+
+    <form class="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4 bg-opacity-90"
+        x-data="{ username: null, password: null }"
+        id="login-form"
+    >
+
+        <!-- Username + Password -->
+        <div class="mb-4">
+            <label class="block text-gray-700 text-sm font-bold mb-2" 
+                for="username"
+                type="text">
+                Username
+            </label>
+            <input class="border {% if failure %} border-red-300 {% endif %} rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-purple-600" 
+                name="username" 
+                id="username" 
+                type="text" 
+                placeholder="LudiOrc69"
+                required
+                autofocus
+                x-model="username" 
+                x-on:input="$el.dispatchEvent(new Event('change'))"
+            >
+        </div>
+        <div class="mb-6">
+            <label class="block text-gray-700 text-sm font-bold mb-2" 
+                for="password">
+                Password
+            </label>
+            <input class="border {% if failure %} border-red-300 {% endif %} rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-purple-600" 
+                name="password"    
+                id="password" 
+                type="password" 
+                placeholder="&#9679;&#9679;&#9679;&#9679;&#9679;&#9679;&#9679;"
+                required
+                x-model="password" 
+                x-on:input="$el.dispatchEvent(new Event('change'))"    
+            >
+        </div>
+        <!-- Error message placeholder-->
+        <!--
+            <div class="h-2 mb-6">
+                {% if failure %}
+                <p>Wrong Credentials.</p>
+                {% endif %}
+            </div>
+        -->
+        <!--Buttons-->
+        <!-- hx-push-url should only push in case of sucess. But probably impossible?-->
+        
+        <!-- todo : Only hx-push-url="/group/" on success!! -->
+        <div class="flex items-center justify-center gap-6">
+            <button class="text-white font-bold py-2 px-4 rounded focus:shadow-outline" 
+                type="submit"
+                disabled
+                hx-post="/login/" 
+                hx-push-url="/group/"
+                hx-target="#body" 
+                hx-select="#body" 
+                hx-swap="outerHTML"
+                x-bind:disabled="!(username && password)"
+                x-bind:class="{'bg-green-500 hover:bg-green-700': username && password, 'bg-gray-300 ': !(username && password)}"
+                >
+                Login
+            </button>
+            <div> 
+                <a class="inline-block align-baseline font-bold text-sm text-purple-500 hover:text-purple-800" 
+                    hx-target="#body" 
+                    hx-select="#body" 
+                    hx-swap="outerHTML"
+                    href="/registration/">
+                    Need to sign up first?
+                </a>
+            </div>
+        </div>
+    
+    </form>
+
+</div>
+
+
+
+{% endblock %}
+    
+
+
+

@@ -1,0 +1,12 @@
+<div sse-swap="player_status_update">
+
+    {% if all_ready %}
+
+        {% include 'game_review/partials/all_ready.html' %}
+
+    {% else %}
+
+        {% include 'game_review/partials/players.html' %}
+
+    {% endif %}
+</div>

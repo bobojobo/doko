@@ -1,0 +1,17 @@
+{% extends "_shared_layout.html" %}
+
+<!-- todo: make nicer and whatnot-->
+
+   {% block title %}
+
+      {{status_code}} - {{status_code_description}}
+
+   {% endblock %}
+     
+   {% block main_content %}
+
+      <h1>{{status_code}} - {{status_code_description}}</h1>
+      <p>reason: {{reason}}</p>
+
+
+   {% endblock %}

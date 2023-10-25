@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <!--We need TWO! One for logged in, one for non-logged in stuff-->
+        <meta charset="UTF-8">
+        <title>{% block title %}doko{% endblock %}</title>
+        <link rel="shortcut icon" href="/statics/icon.png">
+        <link rel="stylesheet" href="/statics/css/site.css"/>
+        <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+        <!-- 
+        <link rel="stylesheet"
+            href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:400,400italic,600,600italic,700,700italic|Source+Code+Pro:500">
+        <link rel="stylesheet" href="/static/fontawesome-free/css/all.min.css"/>
+        -->
+    </head>
+    <body class="flex flex-col min-h-screen bg-gradient-to-b from-pink-500 to-purple-500">
+        <div class="flex flex-col flex-1" id="body"> <!--htmx target for header+footer swaps-->
+            <main class="flex-1 w-auto" id="main">
+                {% block main_content %}{% endblock %}
+            </main>
+        </div>
+        <!-- htmx -->
+        <script src="https://unpkg.com/htmx.org@1.9.4"></script>
+        <!-- htmx websockets-->
+        <!-- <script src="https://unpkg.com/htmx.org/dist/ext/ws.js"></script>-->
+        <!-- htmx sse (server side events)-->
+        <script src="https://unpkg.com/htmx.org/dist/ext/sse.js"></script>
+        <!-- tailwind -->
+        <script src="https://cdn.tailwindcss.com"></script>
+    </body>
+</html>
+
+
+
+

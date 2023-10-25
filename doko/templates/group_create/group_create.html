@@ -1,0 +1,64 @@
+{% extends "_shared_layout.html" %}
+{% block main_content %}
+
+
+<div id="group_create" class = "pt-10 flex flex-wrap justify-center items-normal gap-12" >
+
+    <form>
+
+        <!--Group-->
+        <div class="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4 bg-opacity-90">
+            {% include 'group_create/partials/groupname.html' %}
+        </div>
+
+        <!--users-->
+        <div class="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4 bg-opacity-90">
+            <div class="grid grid-cols-2 gap-4">
+
+                <div>
+                    <label class="block text-gray-700 text-sm font-bold mb-2" 
+                        for="user1"
+                        type="text">
+                        Player 1
+                    </label>
+                    <label class="border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-purple-600" 
+                        name="user1" 
+                        id="user1"
+                    >
+                    {{username}} (you)
+                    </label>
+                </div>
+                    {% for user in users -%}
+                        {% include 'group_create/partials/username.html' %}
+                    {% endfor %}
+                </div>
+                
+        </div> 
+        
+
+        <div class="col-start-1 col-end-2">
+            <button class="bg-pink-500 hover:bg-pink-700 text-white font-bold py-2 px-4 rounded focus:shadow-outline" 
+                type="button"
+                hx-get="/group/"
+                hx-push-url="/group/"
+                hx-target="#main" 
+                hx-select="#main" 
+            >
+            Cancel
+            </button>
+            <button class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:shadow-outline" 
+                type="button"
+                hx-post="/group/create/" 
+                hx-push-url="/group/"
+                hx-target="#main" 
+                hx-select="#main" 
+            >
+        Create
+        </button>
+        </div>
+    </form>
+</div>
+
+
+
+{% endblock %}

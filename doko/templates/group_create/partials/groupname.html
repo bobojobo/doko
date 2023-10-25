@@ -1,0 +1,36 @@
+<div 
+    id="groupname-selection" 
+    class="mb-4" 
+    hx-target="this" 
+    hx-swap="outerHTML" 
+>
+    <label class="block text-gray-700 text-sm font-bold mb-2" 
+        for="groupname"
+    >
+        Name
+    </label>
+
+    <input class="border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-purple-600" 
+        name="groupname" 
+        id="groupname" 
+        value="{{groupname}}"
+        type="text" 
+        placeholder="The Waaargh Boyz"
+        hx-post="/group/create/groupname/" 
+        hx-trigger="keyup changed delay:300ms"
+        required
+        autofocus 
+    >
+    {% if groupname_is_taken %}
+
+    <div class='bg-red-200'> 
+        Groupname is already taken.
+    </div>
+
+    {% else %}
+
+    <div></div> 
+
+    {% endif %}
+
+</div>

@@ -1,0 +1,68 @@
+<div
+    id="user{{user.number}}-div"
+    hx-target="this"
+    hx-swap="outerHTML"
+>
+    <label class="block text-gray-700 text-sm font-bold mb-2"
+        for="user{{user.number}}"
+    >
+        Player {{user.number}}
+    </label>
+
+    <!--type "search" makes weird border: investigate (There is the dont default html style attribure/class I think)-->
+
+    <input 
+        class="appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-purple-600" 
+        id="user{{user.number}}-input"
+        name="username_{{user.number}}" 
+        type="text" 
+        placeholder="LudiOrc#{{user.number + 2}}"
+        hx-post="/group/create/username/?player_number={{user.number}}" 
+        hx-trigger="keyup changed delay:500ms, changed"
+        value="{{user.name}}"
+        required
+    >
+
+    {% if not user.exists %}
+
+        <div 
+            class='bg-red-200'
+            x-init="usernameError = true"
+        > 
+            Player does not exist
+        </div>
+
+        
+    {% elif user.is_the_user %}
+
+        <div 
+            class='bg-red-200'
+            x-init="usernameError = true"
+        > 
+            You are already in your team
+        </div>
+
+    {% elif user.is_already_used %}
+
+        <div 
+            class='bg-red-200'
+            x-init="usernameError = true"
+        > 
+            Player is already in the group
+        </div>
+
+    {% else %}
+
+        <div 
+            x-init="usernameError = false"
+        >
+        </div>
+
+    {% endif %}
+
+</div>
+
+
+
+<!-- todo: make into dropdown menus-->
+<!-- todo: call to /username_check is missing!-->

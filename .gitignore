@@ -1,0 +1,23 @@
+# ignore everything but itelf
+*
+!.gitignore
+
+# allow list
+!readme.md
+!pyproject.toml
+!justfile
+!dockerfile
+!docker-compose.yaml
+!uv.lock
+!.env.local
+!doko/
+!doko/**/
+!doko/**/*.py
+!doko/**/*.html
+!doko/**/*.css
+!doko/**/*.svg
+!test/
+!test/**/
+!test/**/*.py
+# todo: remove the following
+!doko/**/*.png

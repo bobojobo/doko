@@ -1,0 +1,132 @@
+{% for card in hand.cards -%}
+    {% if card.is_playable %}
+    
+        <div
+            id="card-{{card.id}}" 
+            class="card list-group-item bg-green-400 text-center"
+        >
+            <input 
+                id="card-suit-{{card.id}}"
+                type='hidden' 
+                name='suit' 
+                value='{{card.suit}}'
+            />
+            <input 
+                id="card-rank-{{card.id}}"
+                type='hidden' 
+                name='rank' 
+                value='{{card.rank}}'
+            />
+            {{card.rank_abbrev}} {{card.suit_symbol}}
+        </div>
+    
+    {% else %}
+
+        <div 
+            id="card-{{card.id}}" 
+            class="card list-group-item bg-red-300 text-center filtered"
+        >
+            <input 
+                id="card-suit-{{card.id}}"
+                type='hidden' 
+                name='suit' 
+                value='{{card.suit}}'
+            />
+            <input
+                id="card-rank-{{card.id}}" 
+                type='hidden' 
+                name='rank' 
+                value='{{card.rank}}'
+            />
+            {{card.rank_abbrev}} {{card.suit_symbol}}
+        </div>
+    
+    {% endif %}
+{% endfor %}
+
+<script>
+    var stack = document.getElementById('stack-form');
+    var sortablestack = Sortable.create(stack, {
+        group: {
+            name: 'shared',
+            put: function (to) {
+                true //return to.el.children.length < 4;
+            },
+            pull: false,
+        },
+        animation: 150,
+        sort: false
+    });
+
+    var hand = document.getElementById('hand');
+    var sortablehand = Sortable.create(hand, {
+        group: {
+            name: 'shared',
+            pull: function (to, from, dragEl) {
+                // Only allow green cards (playable cards) to be pulled to the stack
+                return !dragEl.classList.contains('filtered');
+            },
+            put: false // Do not allow items to be put into this list
+        },
+        animation: 150,
+        // Removed filter: '.filtered' to allow red cards to be dragged within the hand
+        onMove: function(evt){
+            // Prevent red cards from being moved to the stack
+            if (evt.to.id === 'stack-form' && evt.dragged.classList.contains('filtered')) {
+                return false;
+            }
+            
+            // only allow insert on the the right side of the last card of the stack 
+            if (evt.to.id === 'stack-form') {
+                var is_disabled = evt.related.className.indexOf('disabled') !== -1;
+                if (is_disabled) {
+                    return false;
+                }
+                // 1 means insert after target
+                return 1
+            }
+        },
+        onEnd: function(evt) {
+            // Only send order update if the item stayed in the hand (not moved to stack)
+            if (evt.to.id === 'hand' && evt.from.id === 'hand') {
+                // Get the game ID from the hand element
+                var gameId = document.getElementById('hand').getAttribute('data-game-id');
+                
+                // Get all card IDs in the new order
+                var cardIds = [];
+                var cards = document.querySelectorAll('#hand .card');
+                cards.forEach(function(card) {
+                    var cardId = card.id.replace('card-', '');
+                    cardIds.push(cardId);
+                });
+                
+                // Send the new order to the backend
+                fetch('/game/' + gameId + '/hand/order/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        card_ids: cardIds
+                    })
+                }).catch(function(error) {
+                    console.error('Error updating card order:', error);
+                });
+            }
+        }
+        // todo: apply design class of stack to the new card
+    });
+
+
+
+</script>
+<!--
+<div class="list-group-item bg-red-300 w-30 h-60 text-center filtered">
+    <input type='hidden' name='item' value='10♥️'/>10♥️
+</div>
+
+<div class="list-group-item bg-green-400 w-30 h-60 text-center">
+    <input type='hidden' name='item' value='K♣️'/>K♣️
+</div>
+-->
+

@@ -1,0 +1,15 @@
+<div 
+    class="grid grid-cols-2 gap-4"
+    id="players"
+>
+    <!-- Todo: stylize this to ressemble a table. round the outer corner to make circle out of 4 pie pieces-->
+    {% for playername in playernames -%}
+
+    <div class="h-24 text-gray-700 text-sm font-bold bg-white shadow-md rounded text-center pt-6 pb-5 g-opacity-90">
+        {{playername}} 
+    </div>
+
+    {% endfor %}
+
+
+</div>
