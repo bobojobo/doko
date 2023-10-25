@@ -1,0 +1,76 @@
+{% extends "_shared_layout.html" %}
+{% block main_content %}
+
+
+<div 
+    class = "fade-in pt-10 flex justify-center items-center" 
+    id="register"
+    x-data="{ 
+        usernameHasFocus: null, 
+        passwordHasFocus: null, 
+        passwordValidationHasFocus: null, 
+        usernameValue: null, 
+        passwordValue: null , 
+        passwordValidationValue: null ,
+        usernameError: false,
+        passwordError: false,
+        passwordValidationError: false
+    }"
+>
+
+    <form class="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4 bg-opacity-90" id="registration-form"
+    >
+
+        {% include 'registration/partials/username.html' %}
+
+        {% include 'registration/partials/password.html' %}
+
+        {% include 'registration/partials/password_validation.html' %}
+
+        <div class="flex items-center justify-center gap-6">
+            <!-- todo: have derived a derived x-data variable for this big or starement -->
+            <button class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:shadow-outline" 
+                id="submitbutton"
+                type="button"
+                disabled
+                x-bind:disabled="
+                    !usernameValue || !passwordValue || !passwordValidationValue || usernameError || passwordError || passwordValidationError
+                "
+                x-bind:class="{
+                    'bg-green-500 hover:bg-green-700': usernameValue && passwordValue && passwordValidationValue && !usernameError && !passwordError && !passwordValidationError, 
+                    'bg-gray-300 ': !usernameValue || !passwordValue || !passwordValidationValue || usernameError || passwordError || passwordValidationError
+                }"
+                hx-post="/registration/"
+                hx-target="#register"
+                hx-swap="outerHTML"
+            >
+                Sign up
+            </button>
+            <div> 
+                <a class="inline-block align-baseline font-bold text-sm text-purple-500 focus:shadow-outline hover:text-purple-800" 
+                    hx-target="#main" 
+                    hx-select="#main" 
+                    hx-swap="outerHTML"
+                    href="/login/">
+                    Already have an account?
+                </a>
+            </div>
+        </div>
+
+    </form>
+
+</div>
+
+
+
+{% endblock %}
+
+
+
+
+<!-- spinners. Not sure if I need them..-->
+<!--
+    <img id="spinner-password" src="../../statics/img/spinner.svg" class="htmx-indicator"/>
+    <img class="htmx-indicator" id="spinner-username" src="../../statics/img/spinner.svg"/>
+    <img id="spinner-password-validation" src="../../statics/img/spinner.svg" class="htmx-indicator"/>
+-->

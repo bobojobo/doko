@@ -1,0 +1,128 @@
+{% extends "_shared_layout.html" %}
+{% block main_content %}
+
+<!-- 
+    Control flow: stack longpolls. When not my turn, just update stack. If my turn: send myturnevent.
+    myturnevent: hand listens to this. and makes call to enable valid plays.
+    play card: makes play call. return deactivaes handcards again
+    if stack is full: clear it. no tsure how
+
+    events: https://alpinejs.dev/essentials/events#listening-for-simple-events
+
+Layout is just a stupid grid for now. No crazy layers in z yet.
+
+   1  2  3  4  5  6  7  8  9  10 11 12
+  ┌──┬──┬──┬──┬──┬──┬──┬──┬──┬──┬──┬──┐
+1 │  │  │  │  │  │p │p │  │  │  │  │  │
+  ├──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┤
+2 │  │  │  │  │  │  │  │  │  │  │  │  │
+  ├──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┤
+3 │  │  │  │s │s │s │s │s │s │  │  │  │
+  ├──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┤
+4 │  │  │  │s │s │s │s │s │s │  │  │  │
+  ├──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┤
+5 │p │  │  │s │s │s │s │s │s │  │  │p │
+  ├──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┤
+6 │  │  │  │s │s │s │s │s │s │  │  │  │
+  ├──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┤
+7 │  │  │  │s │s │s │s │s │s │  │  │  │
+  ├──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┤
+8 │  │  │  │  │  │  │  │  │  │  │  │  │
+  ├──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┤
+9 │  │  │  │h │h │h │h │h │h │  │  │  │
+  ├──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┤
+10│  │  │  │h │h │h │h │h │h │  │  │  │
+  ├──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┤
+11│  │  │  │h │h │h │h │h │h │  │  │  │
+  ├──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┤
+12│  │  │  │h │h │h │h │h │h │  │  │  │
+  └──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┘
+-->
+
+
+<!--somewhere poll for availability of all player and send event of it. then listen to this event on player name and on main. update the players availability. And put up modal if waiting. alpine watch might also be good enough-->
+<div 
+  id="game"
+  class="flex-auto pt-10 h-full grid grid-cols-12 grid-rows-12 gap-1"
+  hx-ext="sse"
+  sse-connect="/game/{{game_id}}/sse/"
+  >
+
+    <!-- player left -->
+    <div class=" col-span-1 row-span-1 col-start-1 row-start-5 text-left text-white text-2xl">
+        {{player1}} <!-- todo: ,{online}, {playing right now...} -->
+    </div>
+    <!-- player top -->
+    <div class="col-span-2 col-start-6 row-start-1 text-center text-white text-2xl">
+        {{player2}} <!-- todo: ,{online}, {playing right now...} -->
+    </div>
+    <!-- player right -->
+    <div class="col-span-1 row-span-1 col-start-12 row-start-5 text-right text-white text-2xl">
+        {{player3}} <!-- todo: ,{online}, {playing right now...} -->
+    </div>
+    <!-- hand -->
+    <div class="bg-slate-100 col-span-6 row-span-5 col-start-4 row-start-9">        
+        {% include 'game/partials/hand.html' %}
+    </div>
+    <!-- stack -->
+    <div class="bg-slate-100 col-span-6 row-span-5 col-start-4 row-start-3"
+    >
+        {% include 'game/partials/stack.html' %}
+    </div>
+    <!-- last stack
+    <div class="bg-slate-100 opacity-60 col-span-2 row-span-2 col-start-1 row-start-1">
+    </div> -->
+</div>
+
+<script>
+
+
+
+    // hand and stack
+    var hand = document.getElementById('hand');
+    var stack = document.getElementById('stack-form');
+
+
+    var sortablehand = Sortable.create(hand, {
+        group: {
+            name: 'shared',
+            pull: function (to, from) {
+                return true //return from.el.children.length === 5; // need more logic here: set to true only if my turn and I didnt play a card yet
+            },
+            put: false // Do not allow items to be put into this list
+        },
+        animation: 150,
+        filter: '.filtered', // 'filtered' class is not draggable. But it should probably be only need to be not sharable. So do it in pull instead of filteres 
+        // todo: better alternative might be to ONLY have last card be part of the sortable. that way Mouse cursor is clearer and less code. 
+        onMove: function(evt){
+            // only allow insert on the the right side of the last card of the stack 
+            if (evt.to.id === 'stack-form') {
+                var is_disabled = evt.related.className.indexOf('disabled') !== -1;
+                if (is_disabled) {
+                    return false;
+                }
+                // 1 means insert after target
+                return 1
+            }
+        }
+        // todo: apply design class of stack to the new card
+    });
+
+
+    var sortablestack = Sortable.create(stack, {
+        group: {
+            name: 'shared',
+            put: function (to) {
+                true //return to.el.children.length < 4;
+            },
+            pull: false,
+        },
+        animation: 150,
+        sort: false
+
+    });
+
+
+</script>
+
+{% endblock %}

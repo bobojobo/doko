@@ -1,0 +1,16 @@
+{% extends "_shared_layout.html" %}
+{% block main_content %}
+
+<div id="waiting" 
+    class = "pt-10 flex flex-wrap justify-center items-normal gap-12"
+    hx-ext="sse"
+    sse-connect="/waiting/{{groupname}}/sse/"
+>
+
+    <!-- todo: style groupname real big, real cool, maybe half in background-->
+    {{groupname}}
+
+    {% include 'waiting/partials/update.html' %}
+    
+</div>
+{% endblock %}

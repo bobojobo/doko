@@ -1,0 +1,51 @@
+<div 
+    id="username-section"
+    class="mb-4" 
+    hx-target="this" 
+    hx-swap="outerHTML" 
+>
+    <label class="block text-gray-700 text-sm font-bold mb-2" 
+        for="username"
+    >
+        Username 
+    </label>
+
+
+    <input 
+        class="border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-purple-600" 
+        id="username-input" 
+        name="username" 
+        type="text"
+        placeholder="LudiOrc69"
+        hx-post="/registration/username/" 
+        hx-trigger="keyup changed delay:500ms, changed" 
+        hx-indicator="#spinner-username"
+        value="{{username}}"
+        required
+        autofocus
+        x-model="usernameValue" 
+        x-on:input="$el.dispatchEvent(new Event('change'))"
+        x-on:focus="usernameHasFocus = true"
+        x-on:blur="usernameHasFocus = false"
+        x-bind:autofocus="!(usernameHasFocus || passwordHasFocus || passwordValidationHasFocus)" 
+    >
+
+    {% if username_is_taken %}
+
+        <div 
+            class='bg-red-200'
+            x-init="usernameError = true"
+        > 
+            Username is already taken
+        </div>
+
+    {% else %}
+
+        <div 
+            x-init="usernameError = false"
+        >
+        </div>
+
+    {% endif %}
+
+</div>

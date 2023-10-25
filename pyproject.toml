@@ -1,0 +1,66 @@
+[project]
+name = "doko"
+version = "0.0.1"
+authors = [{name= "Rene Tribess"}]
+description= "Doppelkopf WebApp"
+requires-python=">=3.11"
+dependencies = [
+    # giants all the way down
+    "fastapi >= 0.100",  # api framework
+    "psycopg[binary,pool]",  # postgres database adapter (psycopg is actually psycopg3), pool is for connections pools.
+    "sqlalchemy[asyncio] >= 2",  # orm
+    "bcrypt",  # password encryption
+    "uvicorn[standard]",  # webserver # todo: move to dev?
+    "Jinja2",  # html templating
+    "pydantic >=2",  # runtime type checker
+    "pydantic-settings",  # config from dotenv into pydantic
+    "python-dotenv", # .env -> env
+    "python-multipart", 
+    "sse-starlette",  # server side events
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",  # tests
+    "mypy",  # static type checker 
+    "ruff",  # linter
+    "black",  # formatter
+]
+
+[build-system]
+requires = [
+    "setuptools >= 48",
+    "wheel >= 0.29.0",
+]
+
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages]
+find = {}
+
+[tool.setuptools-package-data]
+"*" = ["py.typed"]
+
+[tool.ruff]
+line-length = 120
+
+[tool.black]
+line-length = 120
+
+[tool.mypy]
+python_version = 3.11
+follow_imports = "normal"
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_untyped_calls = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true

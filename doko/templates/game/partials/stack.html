@@ -1,0 +1,31 @@
+<!-- todo: add non played card here-->
+<div
+    id="stack"
+    hx-get="/game/{{game_id}}/"
+    hx-trigger="sse:card_played" 
+    hx-swap="outerHTML" 
+    hx-target="#stack"
+    hx-select="#stack"
+>
+    <form 
+        class="list-group grid grid-cols-5 gap-4" 
+        id="stack-form"
+        hx-post="/game/{{game_id}}/card/" 
+        hx-trigger="add"
+        hx-swap="none"
+        >
+        <!--todo: stop ignoring with hx-swap -->
+        <!-- all events! if four cards or maybe just hx-after -> dispatch event "4cards-played". listen to this on the "last-stack" -->
+        {% for card in stack.cards -%}
+            <!--todo only last one should be have class "disabled" I think?-->
+            <div 
+                id="card-{{card.id}}"
+                class="list-group-item bg-blue-400 w-20 h-40 text-center"
+            >
+                {{card.rank}} {{card.suit}}
+            </div>
+        {% endfor %}
+    </form>
+<!--
+</div>
+-->

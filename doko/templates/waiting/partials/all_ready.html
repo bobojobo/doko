@@ -1,0 +1,33 @@
+<div class = "pt-10 flex justify-center items-center" 
+    hx-get="/game/{{game_id}}/"
+    hx-trigger="load delay:7s"
+    hx-swap="outerHTML" 
+    hx-target="#main" 
+    hx-select="#main" 
+    hx-push-url="true"
+>
+
+    <div class="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4 bg-opacity-90 text-center">
+        <div class=" text-green-600 animate-bounce">
+        <strong>😎 All ready! 🚀</strong>
+        </div>
+        <br>
+        <div class=" text-purple-600">
+        Forwarding to the <a class="hover:underline" href="/game/{{game_id}}/"><strong>game</strong></a> in <span id="time">7</span> seconds.
+        </div>
+    </div>
+
+</div>
+
+<script>
+    // Set the date we're counting down to
+    var counter = 7;
+    var x = setInterval(function() {
+    counter = counter -1;
+    document.getElementById("time").innerHTML = counter;
+    if (counter < 0) {
+    clearInterval(x);
+    document.getElementById("time").innerHTML = "0";
+    }
+    }, 1000);
+</script>

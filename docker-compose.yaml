@@ -1,0 +1,18 @@
+version: '3.9'
+services:
+  db:
+    container_name: db
+    image: postgres:14.5
+    restart: always
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_PASSWORD: "password"
+      POSTGRES_DB: "doko"
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 1s
+      timeout: 5s
+      retries: 10
+
+# todo: add volume once I stop testing stuff. or just make second one for testing

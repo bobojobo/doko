@@ -1,0 +1,69 @@
+<div 
+    class="list-group grid grid-cols-5 gap-4 sortableplayhand" 
+    id="hand"
+    hx-get="/game/{{game_id}}/"
+    hx-trigger="sse:my_turn" 
+    hx-swap="outerHTML" 
+    hx-target="#hand"
+    hx-select="#hand"
+>
+
+    {% for card in hand.cards -%}
+        
+        {% if card.is_playable %}
+        
+            <div
+                id="card-{{card.id}}" 
+                class="list-group-item bg-green-400 w-30 h-60 text-center"
+            >
+                <input 
+                    id="card-suit-{{card.id}}"
+                    type='hidden' 
+                    name='suit' 
+                    value='{{card.suit}}'
+                />
+                <input 
+                    id="card-rank-{{card.id}}"
+                    type='hidden' 
+                    name='rank' 
+                    value='{{card.rank}}'
+                />
+                {{card.rank}} {{card.suit}}
+             </div>
+        
+        {% else %}
+
+            <div 
+                id="card-{{card.id}}" 
+                class="list-group-item bg-red-300 w-30 h-60 text-center filtered"
+            >
+                <input 
+                    id="card-suit-{{card.id}}"
+                    type='hidden' 
+                    name='suit' 
+                    value='{{card.suit}}'
+                />
+                <input
+                    id="card-rank-{{card.id}}" 
+                    type='hidden' 
+                    name='rank' 
+                    value='{{card.rank}}'
+                />
+                {{card.rank}} {{card.suit}}
+            </div>
+        
+        {% endif %}
+
+    
+    {% endfor %}
+
+    <!--
+    <div class="list-group-item bg-red-300 w-30 h-60 text-center filtered">
+        <input type='hidden' name='item' value='10♥️'/>10♥️
+    </div>
+
+    <div class="list-group-item bg-green-400 w-30 h-60 text-center">
+        <input type='hidden' name='item' value='K♣️'/>K♣️
+    </div>
+    -->
+</div>

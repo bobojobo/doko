@@ -1,0 +1,49 @@
+<div 
+    class="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4 bg-opacity-90" 
+    id="123456789"
+    >
+    <!-- Todo: make selectable with enter or just by arrow selection -->
+    <!-- Todo: call on ~10 sec schedule, to see if new group was created -->
+    <!-- todo: set ready to false when selecting a different group -->
+    <form class="mb-4">
+        <select class="flex items-center w-full mb-6 overflow-y-auto"
+            autofocus
+            id="group-selection"
+            name="groupname"
+            required
+            size="7"
+            x-model="selected_group" 
+            x-on:input="$el.dispatchEvent(new Event('change'))"
+
+        >
+            {% for groupname in groupnames -%}
+
+            <option class="text-center"
+                id="select-{{groupname}}" 
+                value="{{groupname}}"
+                hx-get="/group/players/"
+                hx-target="#players"
+                hx-swap="outerHTML" 
+                hx-include="[name='groupname']"
+                >
+                {{groupname}}
+            </option>
+
+            {% endfor %}
+
+        </select>
+    </form>
+
+    <button class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:shadow-outline" 
+        type="button"
+        hx-get="/group/create/"
+        hx-swap="outerHTML" 
+        hx-target="#main" 
+        hx-select="#main" 
+        hx-push-url="true"
+    >
+        New Group
+    </button>
+
+
+</div>

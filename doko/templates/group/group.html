@@ -1,0 +1,64 @@
+{% extends "_shared_layout.html" %}
+{% block main_content %}
+
+
+<!-- animation only seems to work on target. Make it one page again, or hook into events for animation per div I guess?-->
+<div id="group" 
+    class = "out-left pt-10 flex flex-wrap justify-center items-normal gap-12"
+    x-data="{ selected_group: null }"
+    hx-ext="sse"
+    sse-connect="/group/sse/"
+
+>
+
+    <!--Groups-->
+    <div 
+        class="grid grid-cols-1" 
+        sse-swap="group_created"
+    >
+        {% include 'group/partials/groups.html' %}
+    </div>
+
+
+    <!-- players -->
+    <div 
+        class="grid grid-cols-1 gap-4" 
+        id="playersgrid"
+    >
+
+        {% include 'group/partials/players.html' %}
+
+        <!-- button-->
+
+
+        <div 
+            class="col-start-1 col-end-2" 
+        >
+
+            <button 
+                class="text-white font-bold py-2 px-4 rounded focus:shadow-outline" 
+                type="submit"
+                disabled
+                type="checkbox"
+                hx-get="/waiting/"
+                hx-target="#group" 
+                hx-select="#waiting" 
+                hx-include="[name='groupname']"
+                hx-swap="outerHTML swap:0.5s"
+                hx-push-url="/waiting/"
+                x-bind:disabled="!selected_group"
+                x-bind:class="{'bg-green-500 hover:bg-green-700': selected_group, 'bg-gray-300 ': !selected_group}"
+            >
+                Play
+            </label>
+
+
+
+        </div>
+
+    </div> 
+
+
+</div>
+
+{% endblock %}

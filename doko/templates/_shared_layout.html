@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <title>{% block title %}doko{% endblock %}</title>
+        <link rel="shortcut icon" href="/statics/icon.png">
+        <link rel="stylesheet" href="/statics/css/site.css"/>
+        <!-- TODO: MAYBE USE HYPERSCRIPT INSTEAD!! <script src="https://unpkg.com/hyperscript.org@0.9.9"></script> -->
+        <!-- https://hyperscript.org/expressions/query-reference/ LOOKS EASIER -->
+        <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+        <!-- htmx -->
+        <script src="https://unpkg.com/htmx.org@1.9.4"></script>
+        <!-- htmx websockets-->
+        <!-- <script src="https://unpkg.com/htmx.org/dist/ext/ws.js"></script> -->
+        <!-- htmx sse (server side events)-->
+        <script src="https://unpkg.com/htmx.org/dist/ext/sse.js"></script>
+        <!-- animation
+        <script src="https://unpkg.com/htmx.org/dist/ext/class-tools.js"></script>
+        -->
+        <!-- tailwind -->
+        <script src="https://cdn.tailwindcss.com"></script>
+        <!-- 
+        <link rel="stylesheet"
+            href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:400,400italic,600,600italic,700,700italic|Source+Code+Pro:500">
+        <link rel="stylesheet" href="/static/fontawesome-free/css/all.min.css"/>
+        -->
+        <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+
+        <style>
+            .fade-in {
+                opacity: 1;
+                animation-name: fadeInOpacity;
+                animation-iteration-count: 1;
+                animation-timing-function: ease-in;
+                animation-duration: 0.5s;
+            }
+            
+            
+            @keyframes fadeInOpacity {
+                0% {
+                    opacity: 0;
+                }
+                100% {
+                    opacity: 1;
+                }
+            }
+            
+            .out-left.htmx-swapping {
+                opacity: 0;
+                animation-name: bounceOutLeft;
+                animation-iteration-count: 1;
+                animation-timing-function: ease-in;
+                animation-duration: 0.5s;
+            }
+            
+            
+            @keyframes bounceOutLeft {
+                20% {
+                    opacity: 1;
+                    transform: translate3d(20px, 0, 0) scaleX(0.9);
+                }
+
+                100% {
+                    opacity: 0;
+                    transform: translate3d(-2000px, 0, 0) scaleX(2);
+                }
+            }
+        </style>
+
+    </head>
+    <body class=" bg-gradient-to-b from-pink-500 to-purple-500">
+        <div class="flex flex-col min-h-screen " id="body"> <!--htmx target for header+footer swaps-->
+            <header class="flex-none h-10 text-center text-xl bg-white opacity-80" id="header">
+                <div class="flex items-center justify-between gap-6 text-2xl">
+                    <span>
+                        <a class="hover:underline ml-2" href="/">home.ico</a>
+                    </span> 
+                    <span id="title">
+                        ♦️♥️♠️♣️ Doppelkopf ♣️♠️♥️♦️
+                    </span>
+
+                    <span>
+                        {% if username %}
+                        <!-- on hover: <img src="/statics/user.png" alt="♥️♠️♣️♦️" /> -->
+                        <!-- todo: add menu I guess -->
+                        <span id="username">{{username}}</span>
+                        <a class="hover:underline text-purple-600 hover:text-pink-600 mr-2" href="/logout/">
+                            (logout)
+                        </a>
+                        {% endif %}
+                    </span> 
+                </div>
+            </header>
+
+        <main class="flex-auto w-auto h-full flex flex-col" id="main">
+            {% block main_content %}{% endblock %}
+            </main>
+
+            <footer class="flex-none h-6 text-center bg-white opacity-80 mt-6" id="footer">
+                a bobojobo production
+            </footer>       
+        </div>
+
+    </body>
+</html>
+    
+    
+
+
