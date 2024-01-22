@@ -1,6 +1,5 @@
 """"""
 from datetime import datetime
-import asyncio
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
