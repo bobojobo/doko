@@ -3,7 +3,7 @@
     id="players"
 >
     <!-- Todo: stylize this to ressemble a table. round the outer corner to make circle out of 4 pie pieces-->
-    {% for player in players -%}
+    {% for player in players_status -%}
 
         <div class="bg-white shadow-md rounded px-6 pt-6 pb-6 mb-2 mx-1 bg-opacity-90">
 
@@ -18,15 +18,10 @@
 
 </div>
 
-<button class="w-full bg-pink-500 hover:bg-pink-700 text-white font-bold py-2 px-4 col-span-2 rounded focus:shadow-outline" 
+<!-- todo: respond with pressed down button, that unsets the next stats-->
+<button class="w-full bg-green-400 hover:bg-green-700 text-white font-bold py-2 px-4 col-span-2 rounded focus:shadow-outline" 
     type="button"
-    hx-get="/group/"
-    hx-push-url="/group/"
-    hx-target="#main" 
-    hx-select="#main" 
+    hx-post="/game_review/?status=ready&groupname={{groupname}}"
 >
-    Cancel
+    >>> NEXT >>>
 </button>
-
-
-

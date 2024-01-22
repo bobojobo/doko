@@ -65,6 +65,8 @@
                     transform: translate3d(-2000px, 0, 0) scaleX(2);
                 }
             }
+
+
         </style>
 
     </head>
@@ -73,7 +75,7 @@
             <header class="flex-none h-10 text-center text-xl bg-white opacity-80" id="header">
                 <div class="flex items-center justify-between gap-6 text-2xl">
                     <span>
-                        <a class="hover:underline ml-2" href="/">home.ico</a>
+                        <a class="hover:underline ml-2" href="/">🏠</a>
                     </span> 
                     <span id="title">
                         ♦️♥️♠️♣️ Doppelkopf ♣️♠️♥️♦️
@@ -81,6 +83,7 @@
 
                     <span>
                         {% if username %}
+                        <!-- todo: Post client heartbeat every 60 secs. Save to db/redis. If too old, set status to away, on status change, send event -->
                         <!-- on hover: <img src="/statics/user.png" alt="♥️♠️♣️♦️" /> -->
                         <!-- todo: add menu I guess -->
                         <span id="username">{{username}}</span>

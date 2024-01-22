@@ -179,6 +179,31 @@ class Game(ResponseDto):
     player2: str
     player3: str
 
+class GameReviewCard(BaseModel):
+    suit: str
+    rank: str
+
+class GameReviewPlayerCards(BaseModel):
+    name: str
+    cards: list[GameReviewCard] 
+
+class GameReviewPlayerStatus(BaseModel):
+    name: str
+    status: str
+
+class GameReviewUpdate(ResponseDto):
+    new_gameid: str
+    players_status: list[GameReviewPlayerStatus]
+    groupname: str 
+
+class GameReview(GameReviewUpdate):
+    username: str
+    gamenumber: int
+    gameid: str
+    sittingnumber: int
+    players_cards: list[GameReviewPlayerCards]
+    # players_tricks  todo: an additional tricks view would also be nice. And sorting options.
+
 
 class Error(ResponseDto):
     reason: str

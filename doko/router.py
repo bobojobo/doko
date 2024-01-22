@@ -233,7 +233,7 @@ async def group_create_get(
 
 
 @router.post("/group/create/groupname/", response_class=HTMLResponse)
-async def group_create__groupname_post(
+async def group_create_groupname_post(
     request: Request,
     data: request_dto.GroupCreateGroupname = Depends(),
     session: db.AsyncSession = Depends(db.session),
@@ -350,7 +350,7 @@ async def game_sse_get(
     async def event_stream() -> AsyncGenerator[ServerSentEvent, None]:
         """event + get pattern."""
         try:
-            async for event in sse.EventLoop(session_token, [sse.Event.card_played, sse.Event.my_turn]):
+            async for event in sse.EventLoop(session_token, [sse.Event.card_played, sse.Event.turn_changed, sse.Event.game_closed]):
                 yield ServerSentEvent(event=event.value, data="")
         except asyncio.CancelledError as e:
             logging.debug("SSE disconnection")
@@ -378,10 +378,8 @@ async def game_stack_get(
     session: db.AsyncSession = Depends(db.session),
     session_token: str = Cookie(),
 ) -> None:
-    pass
-    # todo: use this instead of the full /game/{} update endpoint
-    # context: response_dto.Stack = await logic.game.stack(session=session, session_token=session_token)
-    # return render(path=Path("game/partials/stack.html"), context=context, request=request)
+    context: response_dto.Stack = await logic.game.stack(session=session, session_token=session_token, game_id=id)
+    return render(path=Path("game/partials/stack.html"), context=context, request=request)
 
 
 @router.get("/game/{id}/hand/", response_class=HTMLResponse)
@@ -390,11 +388,71 @@ async def game_hand_get(
     id: str,
     session: db.AsyncSession = Depends(db.session),
     session_token: str = Cookie(),
+) -> HTMLResponse:
+    context: response_dto.Hand = await logic.game.hand(session=session, session_token=session_token, game_id=id)
+    return render(path=Path("game/partials/hand.html"), context=context, request=request)
+
+
+@router.get("/game_review/{id}/", response_class=HTMLResponse)
+async def game_review_get(
+    request: Request,
+    id: str,
+    session: db.AsyncSession = Depends(db.session),
+    session_token: str = Cookie(),
+) -> HTMLResponse:
+    """Review of the last game, forwarding button to the next game"""
+
+    context = await logic.game_review.state(session=session, session_token=session_token, game_id=id)
+    return render(path=Path("game_review/game_review.html"), context=context, request=request)
+
+
+@router.get("/game_review/{id}/sse/", response_class=EventSourceResponse)
+async def game_review_sse_get(
+    request: Request,
+    id: str,
+    session_token: str = Cookie(),
+    session: db.AsyncSession = Depends(db.session),
+) -> EventSourceResponse:
+    """
+    Pushing server sent events (SSE) of player status updates to the waiting screen.
+    When a player of the group comes online or goes offline it gets automatically updated by this call.
+    """
+
+    async def event_stream() -> AsyncGenerator[ServerSentEvent, None]:
+        """Return the html directly instead of the event + get pattern."""
+        try:
+            async for event in sse.EventLoop(session_token, [sse.Event.player_status_update]): # , sse.Event.game_created
+                context = await logic.game_review.update( # todo: use a smaller thing: update. Like in group_waiting 
+                    session=session,
+                    session_token=session_token,
+                    game_id=id
+                )
+                template = render(path=Path("game_review/partials/update.html"), context=context, request=request)
+                yield ServerSentEvent(
+                    event=event.value,
+                    data=template.body.decode("utf-8"),
+                )
+                logging.debug(f"{session_token}: waiting for events")
+
+        except asyncio.CancelledError as e:
+            logging.debug("SSE disconnection")
+            #sse.add_task(logic.game_review.cleanup(data=data, session_token=session_token))
+            raise asyncio.CancelledError() from e
+
+    return EventSourceResponse(event_stream(), ping=60)
+
+
+@router.post("/game_review/", response_class=HTMLResponse)
+async def game_review_post(
+    request: Request,
+    data: request_dto.GameReviewReady = Depends(),
+    session: db.AsyncSession = Depends(db.session),
+    session_token: str = Cookie(),
 ) -> None:
-    pass
-    # todo: use this instead of the full /game/{} update endpoint
-    # context: response_dto.Hand = await logic.game.hand(session=session, session_token=session_token)
-    # return render(path=Path("game/partials/hand.html"), context=context, request=request)
+    """Player is ready for the next game"""
+
+    await logic.game_review.ready(data=data, session=session, session_token=session_token)
+
 
 
 @router.get("/{_:path}")

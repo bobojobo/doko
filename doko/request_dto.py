@@ -115,13 +115,7 @@ class GameHandcard(GameCard):
 class GameStackcard(GameCard):
     pass
 
-
 @dataclass(frozen=True, kw_only=True)
-class Game:
-    my_turn: bool
-    handcards: list[GameHandcard]
-    stackcards: list[GameStackcard]
-    player: str
-    player1: str
-    player2: str
-    player3: str
+class GameReviewReady():
+    status: str
+    groupname: str

@@ -14,5 +14,25 @@ services:
       interval: 1s
       timeout: 5s
       retries: 10
+  doko:
+    image: doko
+    build:
+      context: .
+      dockerfile: dockerfile
+    env_file:
+      - .env
+    volumes:
+      - code:/doko/doko
+    depends_on:
+      - db
+    command: ["uvicorn", "doko.main:app", "--host", "0.0.0.0", "--port", "8081", "--reload"]
+    ports: 
+      - "80:8081"
 
-# todo: add volume once I stop testing stuff. or just make second one for testing
+volumes:
+  code:
+    driver: local
+    driver_opts:
+      type: none
+      device: ./doko
+      o: bind
