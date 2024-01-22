@@ -1,7 +1,5 @@
 """"""
 from datetime import datetime
-import asyncio
-
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from doko import request_dto, response_dto, orm, db, logging, sse
@@ -12,10 +10,12 @@ async def user_status(user: orm.User, group: orm.Group, session: AsyncSession) -
     if isinstance(user.session_expiry, datetime) and user.session_expiry > datetime.now():
         try:
             player = await orm.Player.from_user_and_group(user=user, group=group, session=session)
-            if player.is_waiting():
-                status = response_dto.PlayerStatusSymbol.ready
-            else:
+            if player.status == "offline":
+                status = response_dto.PlayerStatusSymbol.offline
+            elif player.status == "online":
                 status = response_dto.PlayerStatusSymbol.online
+            else:
+                status = response_dto.PlayerStatusSymbol.ready
         except LookupError:
             status = response_dto.PlayerStatusSymbol.online
     return status
@@ -45,18 +45,16 @@ async def waiting_for_group(data: request_dto.Waiting, session: AsyncSession, se
     user = await orm.User.from_session_token(session=session, session_token=session_token)
     group = await orm.Group.from_name(session, name=data.groupname)
     player = await orm.Player.from_user_and_group(group=group, user=user, session=session)
-    await player.set_status_wait(session=session)
+    await player.set_status(session=session, status="waiting_for_sitting")
     await session.refresh(user)
     await session.refresh(group)
     await session.refresh(player)
-
 
 async def stop_waiting_for_group(session: AsyncSession, session_token: str, data=request_dto.Waiting) -> None:
     user = await orm.User.from_session_token(session=session, session_token=session_token)
     group = await orm.Group.from_name(session, name=data.groupname)
     player = await orm.Player.from_user_and_group(group=group, user=user, session=session)
-    if player.status == "waiting":
-        await player.unset_status(session=session)
+    await player.set_status(session=session, status="online")
 
 
 async def update(data: request_dto.Waiting, session: AsyncSession, session_token: str) -> response_dto.WaitingUpdate:
@@ -82,19 +80,21 @@ async def update(data: request_dto.Waiting, session: AsyncSession, session_token
     if all_ready:
         # START!
         leader = await group.leader()
-        if user.id == leader.id:
+        group_needs_active_sitting = not await group.has_active_sitting(session=session)
+        if (user.id == leader.id) and group_needs_active_sitting:
             logging.info(f"{user.name}: is the leader and setting up the game.")
             assert not await group.has_active_sitting(session=session)
             active_sitting = await group.create_sitting(session=session)
-            active_game = await active_sitting.create_game(session=session)
+            game = await active_sitting.create_game(session=session)
             await group.deal_cards(session=session)
-            await active_game.create_active_trick(session=session)
-
-        async for _ in sse.EventLoop(session_token, sse.Event.game_created):
-            game = await player.get_active_game(session=session)
+            await game.create_active_trick(session=session)
             game_id = str(game.id)
-            break
-        await player.set_status_playing(session=session)
+        else:
+            async for _ in sse.EventLoop(session_token, sse.Event.game_created):
+                game = await player.get_active_game(session=session)
+                game_id = str(game.id)
+                break
+        await player.set_status(session=session, status="waiting_for_turn")
 
     obj = response_dto.WaitingUpdate(
         players=players,

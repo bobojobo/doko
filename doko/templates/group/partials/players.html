@@ -5,12 +5,8 @@
     <!-- Todo: stylize this to ressemble a table. round the outer corner to make circle out of 4 pie pieces-->
     {% for playername in playernames -%}
 
-    <div class="bg-white shadow-md rounded px-6 pt-6 pb-6 mb-2 mx-1 bg-opacity-90">
-
-        <span class="block text-gray-700 text-sm font-bold">
-            {{playername}} 
-        </span>
-
+    <div class="h-24 text-gray-700 text-sm font-bold bg-white shadow-md rounded text-center pt-6 pb-5 g-opacity-90">
+        {{playername}} 
     </div>
 
     {% endfor %}

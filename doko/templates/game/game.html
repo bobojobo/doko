@@ -61,68 +61,48 @@ Layout is just a stupid grid for now. No crazy layers in z yet.
         {{player3}} <!-- todo: ,{online}, {playing right now...} -->
     </div>
     <!-- hand -->
-    <div class="bg-slate-100 col-span-6 row-span-5 col-start-4 row-start-9">        
-        {% include 'game/partials/hand.html' %}
+    <div class="bg-slate-100 col-span-12 row-span-5 col-start-1 row-start-9">
+      <div 
+        class="list-group sortableplayhand grid grid-cols-10 gap-1 h-full" 
+        id="hand"
+        hx-get="/game/{{game_id}}/hand/"
+        hx-trigger="sse:turn_changed, load" 
+      >
+      </div>
     </div>
     <!-- stack -->
-    <div class="bg-slate-100 col-span-6 row-span-5 col-start-4 row-start-3"
-    >
-        {% include 'game/partials/stack.html' %}
+    <div class="bg-slate-100 col-span-6 row-span-5 col-start-4 row-start-3">
+      <div
+        id="stack"
+        class="h-full"
+        hx-get="/game/{{game_id}}/stack/"
+        hx-trigger="sse:card_played, load" 
+        hx-target="#stack-form"
+      >
+        <form 
+          class="list-group grid grid-cols-5 gap-4 h-full" 
+          id="stack-form"
+          hx-post="/game/{{game_id}}/card/" 
+          hx-trigger="add"
+          hx-swap="none"
+        >
+        </form>
+      </div>
+
     </div>
     <!-- last stack
     <div class="bg-slate-100 opacity-60 col-span-2 row-span-2 col-start-1 row-start-1">
     </div> -->
+    <div
+      hx-get="/game_review/{{game_id}}/"
+      hx-trigger="sse:game_closed" 
+      hx-target="#body"
+      hx-swap="outerHTML"
+      hx-push-url="/game_review/{{game_id}}/"
+      >
+  </div>
 </div>
 
-<script>
 
-
-
-    // hand and stack
-    var hand = document.getElementById('hand');
-    var stack = document.getElementById('stack-form');
-
-
-    var sortablehand = Sortable.create(hand, {
-        group: {
-            name: 'shared',
-            pull: function (to, from) {
-                return true //return from.el.children.length === 5; // need more logic here: set to true only if my turn and I didnt play a card yet
-            },
-            put: false // Do not allow items to be put into this list
-        },
-        animation: 150,
-        filter: '.filtered', // 'filtered' class is not draggable. But it should probably be only need to be not sharable. So do it in pull instead of filteres 
-        // todo: better alternative might be to ONLY have last card be part of the sortable. that way Mouse cursor is clearer and less code. 
-        onMove: function(evt){
-            // only allow insert on the the right side of the last card of the stack 
-            if (evt.to.id === 'stack-form') {
-                var is_disabled = evt.related.className.indexOf('disabled') !== -1;
-                if (is_disabled) {
-                    return false;
-                }
-                // 1 means insert after target
-                return 1
-            }
-        }
-        // todo: apply design class of stack to the new card
-    });
-
-
-    var sortablestack = Sortable.create(stack, {
-        group: {
-            name: 'shared',
-            put: function (to) {
-                true //return to.el.children.length < 4;
-            },
-            pull: false,
-        },
-        animation: 150,
-        sort: false
-
-    });
-
-
-</script>
 
 {% endblock %}

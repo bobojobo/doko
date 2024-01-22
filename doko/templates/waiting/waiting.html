@@ -6,11 +6,12 @@
     hx-ext="sse"
     sse-connect="/waiting/{{groupname}}/sse/"
 >
+    <div class="grid grid-cols-1 gap-4">
+        <div class="text-center font-extrabold text-6xl pb-6 opacity-50">
+            {{groupname}}
+        </div>
 
-    <!-- todo: style groupname real big, real cool, maybe half in background-->
-    {{groupname}}
-
-    {% include 'waiting/partials/update.html' %}
-    
+        {% include 'waiting/partials/update.html' %}
+    </div>
 </div>
 {% endblock %}

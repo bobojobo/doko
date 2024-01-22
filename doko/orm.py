@@ -25,14 +25,14 @@ Model:
 """
 
 from __future__ import annotations
-from typing import Any
+from typing import Any, Literal, get_args
 from datetime import datetime
 import uuid
 import secrets
 from random import shuffle
 import asyncio
 
-from sqlalchemy import ForeignKey, select, func, event
+from sqlalchemy import ForeignKey, Enum, select, func, event
 from sqlalchemy.orm import (
     Mapped,
     mapped_column,
@@ -53,6 +53,7 @@ from doko.libs import password_utils
 
 # schema = "some_name_here"
 
+PlayerStatus = Literal["offline", "online", "waiting_for_sitting", "waiting_for_game", "waiting_for_turn", "playing"]
 
 class Cookie(BaseModel):
     key: str = Field(default="session_token")
@@ -121,10 +122,20 @@ class Player(Crud, AuditMixin):
 
     # not using the id mixin simce id is not the primary key here
     id: Mapped[uuid.UUID] = mapped_column(unique=True, default=uuid.uuid4)
+    # TODO: I think player should also have a token thats stored in frontend
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("user.id"), primary_key=True)
     group_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("group.id"), primary_key=True)
-    # todo: maybe enum: https://docs.sqlalchemy.org/en/20/dialects/postgresql.html#sqlalchemy.dialects.postgresql.ENUM
-    status: Mapped[str | None] = mapped_column(default=None)  # Heavily linked to events.
+    # https://stackoverflow.com/questions/76268799/how-should-i-declare-enums-in-sqlalchemy-using-mapped-column-to-enable-type-hin
+    status: Mapped[PlayerStatus] = mapped_column(
+        Enum(
+            *get_args(PlayerStatus),
+            create_constraint=True,
+            validate_strings=True,
+            name="playerstatus"
+            ),
+        default="offline",
+    )
+
 
     user: Mapped[User] = relationship(back_populates="players", viewonly=True)
     group: Mapped[Group] = relationship(back_populates="players", viewonly=True)
@@ -148,38 +159,17 @@ class Player(Crud, AuditMixin):
             raise LookupError()
         return instance
 
-    def is_waiting(self) -> bool:
-        return self.status in ["waiting", "playing"]
-
     async def reset(self, session: AsyncSession) -> None:
         # todo: delete the hand the right way!
         self.hand = None
-        self.status = None
+        self.status: PlayerStatus = "offline"
         await session.commit()
         await session.refresh(self)
         logging.debug(f"{self.user.name}-{self.group.name} was reset")
 
-    async def set_status_wait(self, session: AsyncSession) -> None:
-        if self.status != "waiting":
-            self.status = "waiting"
-            await session.commit()
-            await session.refresh(self)
-
-    async def set_status_online(self, session: AsyncSession) -> None:
-        if self.status != "online":
-            self.status = "online"
-            await session.commit()
-            await session.refresh(self)
-
-    async def set_status_playing(self, session: AsyncSession) -> None:
-        if self.status != "playing":
-            self.status = "playing"
-            await session.commit()
-            await session.refresh(self)
-
-    async def unset_status(self, session: AsyncSession) -> None:
-        if self.status is not None:
-            self.status = None
+    async def set_status(self, session: AsyncSession, status: PlayerStatus) -> None:
+        if self.status != status:
+            self.status = status
             await session.commit()
             await session.refresh(self)
 
@@ -260,7 +250,7 @@ class User(Crud, AuditMixin, IdMixin):
 
         players: list[Player] = await user.awaitable_attrs.players
         for player in players:
-            await player.set_status_online(session=session)
+            await player.set_status(session=session, status="online")
         return user
 
     @classmethod
@@ -355,7 +345,7 @@ class Group(Crud, AuditMixin, IdMixin):
 
     async def all_players_are_waiting(self) -> bool:
         players: list[Player] = await self.awaitable_attrs.players
-        all_waiting = all([player.is_waiting() for player in players])
+        all_waiting = all([player.status not in ["offline", "online"] for player in players])
         return all_waiting
 
     @classmethod
@@ -543,11 +533,21 @@ class Sitting(Crud, AuditMixin, IdMixin):
             .filter(Game.active == False)  # todo: DONT DO "IS" HERE! (add ruff rule)
         )
         result = await session.execute(stmt)
-        active_game = result.scalars().first()
-        if active_game is None:
+        last_game_number = result.scalars().first()
+        if last_game_number is None:
             logging.debug("No last game found.")
             raise LookupError()
-        return active_game
+        
+        stmt = (
+            select(Game)
+            .filter(Game.number == last_game_number)
+        )
+        result = await session.execute(stmt)
+        last_game = result.scalars().first()
+        if last_game is None:
+            logging.debug("No last game found.")
+            raise LookupError()
+        return last_game
 
     async def create_game(self, session: AsyncSession) -> Game:
         assert self.active
@@ -720,6 +720,7 @@ class Play(Crud, AuditMixin, IdMixin):
     # todo: add validator: 0 <= number <= 3
     number: Mapped[int] = mapped_column()
     trick_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("trick.id"))
+    player_id: Mapped[uuid.UUID] = mapped_column()  # no foreign key, we be fiiiine
     # bid: Mapped[int] = mapped_column()
     # ts_start: Mapped[datetime] = mapped_column()
     # ts_end: Mapped[datetime] = mapped_column()
@@ -734,7 +735,7 @@ class Play(Crud, AuditMixin, IdMixin):
 
 # todo: Move the event stuff elsewhere!
 
-async def broadcast_status_update(user_id: uuid.UUID, group_id: uuid.UUID, new_status: str) -> None:
+async def broadcast_status_update(user_id: uuid.UUID, group_id: uuid.UUID, new_status: PlayerStatus) -> None:
     async with db.get_session() as session:
         user = await User.from_id(session=session, id=user_id)
         group = await Group.from_id(session=session, id=group_id)
@@ -766,6 +767,17 @@ async def broadcast_new_game(game_id: uuid.UUID) -> None:
             print(f"Notifying {user.name} about new game: {game_id}.")
             sse.EventStore[user.session_token][sse.Event.game_created].set()
 
+async def broadcast_game_closed(game_id: uuid.UUID) -> None:
+    await asyncio.sleep(0.3)
+    async with db.get_session() as session:
+        game: Game = await Game.from_id(session=session, id=game_id)
+        group = await game.get_group()
+        users = await group.get_sorted_users()
+        for user in users:
+            print(f"Notifying {user.name} about closed game: {game_id}.")
+            sse.EventStore[user.session_token][sse.Event.game_closed].set()
+
+
 
 async def broadcast_new_played_card(card_id: uuid.UUID) -> None:
     await asyncio.sleep(0.3)
@@ -782,14 +794,19 @@ async def broadcast_new_played_card(card_id: uuid.UUID) -> None:
 
 
 @event.listens_for(Player.status, "set", propagate=True)
-def received_status_update(player: Player, new_status: str, *_) -> None:
-    if new_status != "playing":
-        sse.add_task(broadcast_status_update(player.user_id, player.group_id, new_status))
+def received_status_update(player: Player, new_status: PlayerStatus, *_) -> None:
+    sse.add_task(broadcast_status_update(player.user_id, player.group_id, new_status))
 
 
 @event.listens_for(Group, "after_insert", propagate=True)
 def received_new_group(_, __, group: Group) -> None:
     sse.add_task(broadcast_new_group(group_id=group.id))
+
+
+@event.listens_for(Game.active, "set", propagate=True)
+def received_game_closed(game: Game, active: bool, *_) -> None:
+    if not active:
+        sse.add_task(broadcast_game_closed(game_id=game.id))
 
 
 @event.listens_for(Game, "after_insert", propagate=True)

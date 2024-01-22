@@ -22,8 +22,9 @@ class Event(Enum):
     player_status_update = "player_status_update"
     group_created = "group_created"
     game_created = "game_created"
+    game_closed = "game_closed"
     card_played = "card_played"
-    my_turn = "my_turn"  # todo: rename to turn_change?
+    turn_changed = "turn_changed"
 
 
 # keep track of events. Eventually this would evolve into something like a redis 

@@ -1,69 +1,99 @@
-<div 
-    class="list-group grid grid-cols-5 gap-4 sortableplayhand" 
-    id="hand"
-    hx-get="/game/{{game_id}}/"
-    hx-trigger="sse:my_turn" 
-    hx-swap="outerHTML" 
-    hx-target="#hand"
-    hx-select="#hand"
->
-
-    {% for card in hand.cards -%}
-        
-        {% if card.is_playable %}
-        
-            <div
-                id="card-{{card.id}}" 
-                class="list-group-item bg-green-400 w-30 h-60 text-center"
-            >
-                <input 
-                    id="card-suit-{{card.id}}"
-                    type='hidden' 
-                    name='suit' 
-                    value='{{card.suit}}'
-                />
-                <input 
-                    id="card-rank-{{card.id}}"
-                    type='hidden' 
-                    name='rank' 
-                    value='{{card.rank}}'
-                />
-                {{card.rank}} {{card.suit}}
-             </div>
-        
-        {% else %}
-
-            <div 
-                id="card-{{card.id}}" 
-                class="list-group-item bg-red-300 w-30 h-60 text-center filtered"
-            >
-                <input 
-                    id="card-suit-{{card.id}}"
-                    type='hidden' 
-                    name='suit' 
-                    value='{{card.suit}}'
-                />
-                <input
-                    id="card-rank-{{card.id}}" 
-                    type='hidden' 
-                    name='rank' 
-                    value='{{card.rank}}'
-                />
-                {{card.rank}} {{card.suit}}
-            </div>
-        
-        {% endif %}
-
+{% for card in hand.cards -%}
+    {% if card.is_playable %}
     
-    {% endfor %}
+        <div
+            id="card-{{card.id}}" 
+            class="card list-group-item bg-green-400 text-center"
+        >
+            <input 
+                id="card-suit-{{card.id}}"
+                type='hidden' 
+                name='suit' 
+                value='{{card.suit}}'
+            />
+            <input 
+                id="card-rank-{{card.id}}"
+                type='hidden' 
+                name='rank' 
+                value='{{card.rank}}'
+            />
+            {{card.rank}} {{card.suit}}
+        </div>
+    
+    {% else %}
 
-    <!--
-    <div class="list-group-item bg-red-300 w-30 h-60 text-center filtered">
-        <input type='hidden' name='item' value='10♥️'/>10♥️
-    </div>
+        <div 
+            id="card-{{card.id}}" 
+            class="card list-group-item bg-red-300 text-center filtered"
+        >
+            <input 
+                id="card-suit-{{card.id}}"
+                type='hidden' 
+                name='suit' 
+                value='{{card.suit}}'
+            />
+            <input
+                id="card-rank-{{card.id}}" 
+                type='hidden' 
+                name='rank' 
+                value='{{card.rank}}'
+            />
+            {{card.rank}} {{card.suit}}
+        </div>
+    
+    {% endif %}
+{% endfor %}
 
-    <div class="list-group-item bg-green-400 w-30 h-60 text-center">
-        <input type='hidden' name='item' value='K♣️'/>K♣️
-    </div>
-    -->
+<script>
+    var stack = document.getElementById('stack-form');
+    var sortablestack = Sortable.create(stack, {
+        group: {
+            name: 'shared',
+            put: function (to) {
+                true //return to.el.children.length < 4;
+            },
+            pull: false,
+        },
+        animation: 150,
+        sort: false
+    });
+
+    var hand = document.getElementById('hand');
+    var sortablehand = Sortable.create(hand, {
+        group: {
+            name: 'shared',
+            pull: function (to, from) {
+                return true //return from.el.children.length === 5; // need more logic here: set to true only if my turn and I didnt play a card yet
+            },
+            put: false // Do not allow items to be put into this list
+        },
+        animation: 150,
+        filter: '.filtered', // 'filtered' class is not draggable. But it should probably be only need to be not sharable. So do it in pull instead of filteres 
+        // todo: better alternative might be to ONLY have last card be part of the sortable. that way Mouse cursor is clearer and less code. 
+        onMove: function(evt){
+            // only allow insert on the the right side of the last card of the stack 
+            if (evt.to.id === 'stack-form') {
+                var is_disabled = evt.related.className.indexOf('disabled') !== -1;
+                if (is_disabled) {
+                    return false;
+                }
+                // 1 means insert after target
+                return 1
+            }
+        }
+        // todo: apply design class of stack to the new card
+    });
+
+
+
+</script>
+<!--
+<div class="list-group-item bg-red-300 w-30 h-60 text-center filtered">
+    <input type='hidden' name='item' value='10♥️'/>10♥️
 </div>
+
+<div class="list-group-item bg-green-400 w-30 h-60 text-center">
+    <input type='hidden' name='item' value='K♣️'/>K♣️
+</div>
+-->
+

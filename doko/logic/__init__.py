@@ -8,4 +8,5 @@ from doko.logic import (
     login,
     logout,
     registration,
+    game_review,
 )
