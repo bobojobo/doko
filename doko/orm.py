@@ -484,6 +484,34 @@ class Hand(Crud, AuditMixin, IdMixin):
     player: Mapped[Player] = relationship(back_populates="hand", foreign_keys=[player_id])
 
     # __table_args__ = (ForeignKeyConstraint([user_id, group_id],[Player.user_id, Player.group_id]),)
+    
+    async def get_valid_plays(self) -> list[HandCard]:
+        ruled_cards = rules.Normal.cards
+
+        # rule hand cards 
+        ruled_hand_cards: list[rules.Card] = []
+        for card in self.awaitable_attrs.cards:
+            for ruled_card in ruled_cards:
+                if card.suit == ruled_card.suit and card.rank == ruled_card.rank:
+                    ruled_hand_cards.append(ruled_card)
+
+        # rule trick cards
+        active_game = self.awaitable_attrs.player.get_active_game()
+        active_trick = active_game.awaitable_attrs.get_active_trick()
+        plays = active_trick.plays
+        trick_cards = [play.card for play in plays]
+        ruled_trick_cards: list[rules.Card] = []
+        for trick_card in trick_cards:
+            for ruled_card in ruled_cards:
+                if trick_card.suit == ruled_card.suit and trick_card.rank == ruled_card.rank:
+                    ruled_trick_cards.append(ruled_card)
+                    break
+
+        # first trick card: 
+        first_trick_card = ruled_trick_cards[0]
+        if first_trick_card.is_trump:
+            pass
+
 
 
 class Sitting(Crud, AuditMixin, IdMixin):

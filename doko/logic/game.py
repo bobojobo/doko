@@ -198,6 +198,9 @@ async def play_card(data: request_dto.GameHandcard, session: AsyncSession, sessi
             break
     assert card_id is not None, "illegal move: car not in hand"
 
+    # check if the played card is allowed by the game rules
+    
+
     # remove card from hand
     stmt = delete(orm.HandCard).where(orm.HandCard.id == card_id)
     await session.execute(stmt)
