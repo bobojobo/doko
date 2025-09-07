@@ -485,33 +485,61 @@ class Hand(Crud, AuditMixin, IdMixin):
 
     # __table_args__ = (ForeignKeyConstraint([user_id, group_id],[Player.user_id, Player.group_id]),)
     
-    async def get_valid_plays(self) -> list[HandCard]:
+    async def get_valid_plays(self, session: AsyncSession) -> list[HandCard]:
+
+        hand_cards = await self.awaitable_attrs.cards
+        player: Player = await self.awaitable_attrs.player
+        logging.info(f"Found {len(hand_cards)} cards in hand")
+        active_game: Game = await player.get_active_game(session=session)
+        active_trick = await active_game.get_active_trick(session=session)
+        plays: list[Play] = active_trick.plays       
+        trick_cards: list[PlayedCard] = []
+        for play in plays:
+            trick_card = await play.awaitable_attrs.card
+            trick_cards.append(trick_card)
+        logging.info(f"Found {len(trick_cards)} cards in the trick")
+
+        if len(trick_cards) == 0:
+            logging.info("First play in trick: all cards in hand are valid plays")
+            return hand_cards
+
+        # rule cards 
         ruled_cards = rules.Normal.cards
 
         # rule hand cards 
         ruled_hand_cards: list[rules.Card] = []
-        for card in self.awaitable_attrs.cards:
+        for hand_card in hand_cards:
             for ruled_card in ruled_cards:
-                if card.suit == ruled_card.suit and card.rank == ruled_card.rank:
+                if (hand_card.suit == ruled_card.suit.value) and (hand_card.rank == ruled_card.rank.name):
                     ruled_hand_cards.append(ruled_card)
-
+                    break
+        
         # rule trick cards
-        active_game = self.awaitable_attrs.player.get_active_game()
-        active_trick = active_game.awaitable_attrs.get_active_trick()
-        plays = active_trick.plays
-        trick_cards = [play.card for play in plays]
         ruled_trick_cards: list[rules.Card] = []
         for trick_card in trick_cards:
             for ruled_card in ruled_cards:
-                if trick_card.suit == ruled_card.suit and trick_card.rank == ruled_card.rank:
+                if (trick_card.suit == ruled_card.suit.value) and (trick_card.rank == ruled_card.rank.name):
                     ruled_trick_cards.append(ruled_card)
                     break
-
+        
         # first trick card: 
-        first_trick_card = ruled_trick_cards[0]
-        if first_trick_card.is_trump:
-            pass
-
+        first_ruled_trick_card = ruled_trick_cards[0]
+        if first_ruled_trick_card.is_trump:
+            logging.info(f"First card in trick is {first_ruled_trick_card}: a trump.")
+            trump_hand_cards = [hand_card for hand_card, ruled_hand_card in zip(hand_cards, ruled_hand_cards) if ruled_hand_card.is_trump] 
+            if any(trump_hand_cards):
+                logging.info(f"Returning the {len(trump_hand_cards)} trumps as valid cards.")
+                return trump_hand_cards
+            logging.info(f"No trumps in hand. All {len(hand_cards)} non-trumps are valid cards.")
+            return hand_cards
+        else:
+            logging.info(f"First card in trick is {first_ruled_trick_card}: not a trump")
+            matching_suit_hand_cards = [hand_card for hand_card, ruled_hand_card in zip(hand_cards, ruled_hand_cards) if (not ruled_hand_card.is_trump) and (hand_card.suit == first_ruled_trick_card.suit.value)] 
+            if any(matching_suit_hand_cards):
+                logging.info(f"Returning the {len(matching_suit_hand_cards)} cards with matching suit as valid cards.")
+                return matching_suit_hand_cards
+            logging.info(f"No card with matching suit in hand. All {len(hand_cards)} non-matching-suit cards are valid cards.")
+            return hand_cards
 
 
 class Sitting(Crud, AuditMixin, IdMixin):

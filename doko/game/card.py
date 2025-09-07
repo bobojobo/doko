@@ -39,6 +39,8 @@ class Card:
     def __hash__(self) -> int:
         return hash(f"{self.suit.value}{self.rank.value}")
 
+    def __repr__(self) -> str:
+        return str(self)
 
 if __name__ == "__main__":
     deck: list[Card] = [

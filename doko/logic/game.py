@@ -147,6 +147,7 @@ async def hand(session: AsyncSession, session_token: str, game_id: str) -> respo
         trick_card = await play.awaitable_attrs.card
         trick_cards.append(trick_card)
 
+
     sequence = [
         sitting.sequence_player_0_id,
         sitting.sequence_player_1_id,
@@ -159,17 +160,20 @@ async def hand(session: AsyncSession, session_token: str, game_id: str) -> respo
 
     if it_is_players_turn:
         await player.set_status(status="playing", session=session)
+        valid_play_ids = [p.id for p in await hand.get_valid_plays(session=session)]
+        cards=[
+            response_dto.GameCardHand(suit=card.suit, rank=card.rank, id=str(card.id), is_playable=card.id in valid_play_ids)
+            for card in hand_cards
+        ]
+
     else:
         await player.set_status(status="waiting_for_turn", session=session)
+        cards=[
+            response_dto.GameCardHand(suit=card.suit, rank=card.rank, id=str(card.id), is_playable=False)
+            for card in hand_cards
+        ]
 
-    obj = response_dto.GamePartialHand(
-        hand=response_dto._GamePartialHand(
-            cards=[
-                response_dto.GameCardHand(suit=card.suit, rank=card.rank, id=str(card.id), is_playable=it_is_players_turn)
-                for card in hand_cards
-            ]
-        )
-    )
+    obj = response_dto.GamePartialHand(hand=response_dto._GamePartialHand(cards=cards))
 
     return obj
 
@@ -184,9 +188,11 @@ async def play_card(data: request_dto.GameHandcard, session: AsyncSession, sessi
     player = await orm.Player.from_user_and_group(group=group, user=user, session=session)
     trick = await game.get_active_trick(session=session)
     active_player = await trick.next_player_up(session=session)
-    hand = await player.awaitable_attrs.hand
+    hand: orm.Hand = await player.awaitable_attrs.hand
     hand_cards: list[orm.HandCard] = await hand.awaitable_attrs.cards
     plays: list[orm.Play] = await trick.awaitable_attrs.plays
+
+    logging.info(f"{user.name}: tries to play {data.rank} {data.suit}")
 
     # checks
     assert active_player.id == player.id, "illegal move: not that players turn"
@@ -195,12 +201,15 @@ async def play_card(data: request_dto.GameHandcard, session: AsyncSession, sessi
     for i, card in enumerate(hand_cards):
         if (card.rank == data.rank) and (card.suit == data.suit):
             card_id = card.id
-            break
-    assert card_id is not None, "illegal move: car not in hand"
+            logging.info(f"Found the card in hand: {card_id}")
+    assert card_id is not None, "illegal move: card not in hand"
 
     # check if the played card is allowed by the game rules
-    
+    valid_plays = await hand.get_valid_plays(session=session)
+    logging.info(f"Received these valid plays: {valid_plays}")
+    assert card_id in [valid_card.id for valid_card in valid_plays], "illegal move: card not in valid cards"
 
+    
     # remove card from hand
     stmt = delete(orm.HandCard).where(orm.HandCard.id == card_id)
     await session.execute(stmt)
