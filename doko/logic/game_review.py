@@ -143,19 +143,29 @@ async def ready(data: request_dto.GameReviewReady, session: AsyncSession, sessio
     logging.info(f"{user.name}: after status change, all_ready={all_ready}")
     
     if all_ready:
-        leader = await group.leader()
         # Check if group has an active sitting and if that sitting needs a new game
         if await group.has_active_sitting(session=session):
             active_sitting = await group.get_active_sitting(session=session)
             group_needs_active_game = not await active_sitting.has_active_game(session=session)
-            logging.info(f"{user.name}: is_leader={user.id == leader.id}, group_needs_active_game={group_needs_active_game}")
+            logging.info(f"{user.name}: group_needs_active_game={group_needs_active_game}")
             
-            if (user.id == leader.id) and group_needs_active_game:
-                logging.info(f"{user.name}: is the leader and creating the game immediately.")
+            # The last player to mark ready creates the game (to avoid race conditions)
+            # We don't need to check for leader here - any player can create it
+            if group_needs_active_game:
+                logging.info(f"{user.name}: creating the game immediately (last to mark ready).")
                 new_game = await active_sitting.create_game(session=session)
                 await group.deal_cards(session=session)
                 await new_game.create_active_trick(session=session)
                 await player.set_status(session=session, status="waiting_for_turn")
                 logging.info(f"{user.name}: created new game {new_game.id}")
+                
+                # Notify all other players about the new game
+                all_users = await group.get_sorted_users()
+                for notified_user in all_users:
+                    if notified_user.id != user.id:  # Don't notify the creating player
+                        try:
+                            sse.EventStore[notified_user.session_token][sse.Event.game_created].set()
+                        except KeyError:
+                            pass  # Player not connected via SSE
         else:
             logging.warning(f"{user.name}: Group has no active sitting, cannot create game")

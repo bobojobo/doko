@@ -38,21 +38,32 @@ async def password_validation(
     )
 
 
-async def register(data: request_dto.Register, session: AsyncSession) -> response_dto.RegistrationPartialSuccess:
+async def register(data: request_dto.Register, session: AsyncSession) -> response_dto.RegistrationPartialUsername | response_dto.RegistrationPartialPasswordValidation | response_dto.RegistrationPartialSuccess:
     """The submit form-input of the registration page."""
 
     # todo: add username validation -> regex min length, ...
     # todo: Also prefilling username into the login would be nice
     #       redirect_url = URL("/").include_query_params(username=username)
 
-    # todo: I think these asserts needs to raise http exceptions instead
-    assert await orm.User.name_is_available(name=data.username, session=session), "Username is already taken"
+    # Check if username is available
+    username_is_available = await orm.User.name_is_available(name=data.username, session=session)
+    if not username_is_available:
+        return response_dto.RegistrationPartialUsername(
+            first_load=False,
+            username=data.username,
+            username_is_taken=True,
+        )
 
+    # Validate password match
     # todo: these should be on the pydantic model. But test if it indeed works!
     # assert password_utils.is_valid_password(data.password), (
     #    "Password is not valid: \n" + password_utils.password_regex_description
     # )
-    # assert data.password == data.password_validation, "Password validation is not equal to the original password."
+    if data.password != data.password_validation:
+        return response_dto.RegistrationPartialPasswordValidation(
+            password=data.password,
+            password_validation=data.password_validation,
+        )
 
     hashed_password = password_utils.hash_password(data.password)
     new_user = orm.User(name=data.username, password=hashed_password)

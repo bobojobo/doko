@@ -217,7 +217,7 @@ class User(Crud, AuditMixin, IdMixin):
     async def from_name(cls, session: AsyncSession, name: str) -> User:
         stmt = select(cls).where(cls.name == name)
         result = await session.execute(stmt)
-        user = result.scalars().first()
+        user = result.scalars().unique().first()
         if user is None:
             raise LookupError()
         return user
@@ -226,7 +226,7 @@ class User(Crud, AuditMixin, IdMixin):
     async def from_session_token(cls, session: AsyncSession, session_token: str) -> User:
         stmt = select(cls).where(cls.session_token == session_token)
         result = await session.execute(stmt)
-        user = result.scalars().first()
+        user = result.scalars().unique().first()
         if user is None:
             raise LookupError()
         return user
@@ -306,7 +306,7 @@ class User(Crud, AuditMixin, IdMixin):
     async def name_is_available(cls, session: AsyncSession, name: str) -> bool:
         stmt = select(cls).where(cls.name == name)
         result = await session.execute(stmt)
-        user = result.scalars().first()
+        user = result.scalars().unique().first()
         return user is None
 
     def username_self_marked(self, other_user: User) -> str:
@@ -333,7 +333,7 @@ class Group(Crud, AuditMixin, IdMixin):
     async def from_name(cls, session: AsyncSession, name: str) -> Group:
         stmt = select(cls).filter(cls.name == name)
         result = await session.execute(stmt)
-        group = result.scalars().first()
+        group = result.scalars().unique().first()
         if group is None:
             raise LookupError()
         return group
@@ -352,7 +352,7 @@ class Group(Crud, AuditMixin, IdMixin):
     async def name_is_available(cls, session: AsyncSession, name: str) -> bool:
         stmt = select(cls).where(cls.name == name)
         result = await session.execute(stmt)
-        group = result.scalars().first()
+        group = result.scalars().unique().first()
         return group is None
 
     async def get_active_sitting(self, session: AsyncSession) -> Sitting:
@@ -414,6 +414,24 @@ class Group(Crud, AuditMixin, IdMixin):
         players: list[Player] = [
             await Player.from_user_and_group(group=self, user=user, session=session) for user in all_users
         ]
+
+        # Delete old hands and hand cards for all players before dealing new ones
+        from sqlalchemy import delete
+        for player in players:
+            # Delete HandCards associated with player's hands
+            stmt_cards = delete(HandCard).where(
+                HandCard.hand_id.in_(
+                    select(Hand.id).where(Hand.player_id == player.id)
+                )
+            )
+            await session.execute(stmt_cards)
+            
+            # Delete Hands for player
+            stmt_hands = delete(Hand).where(Hand.player_id == player.id)
+            await session.execute(stmt_hands)
+        
+        await session.commit()
+        logging.info(f"Deleted old hands for {self.name}")
 
         # Deck is not a real object. Think of it as a virtual Object that exists only briefly in the setup period and
         # then gets directly stored in Hands. Long term the cards live on in the tricks.
@@ -486,13 +504,19 @@ class Hand(Crud, AuditMixin, IdMixin):
 
     # __table_args__ = (ForeignKeyConstraint([user_id, group_id],[Player.user_id, Player.group_id]),)
     
-    async def get_valid_plays(self, session: AsyncSession) -> list[HandCard]:
+    async def get_valid_plays(self, session: AsyncSession, trick: Trick | None = None) -> list[HandCard]:
 
         hand_cards = await self.awaitable_attrs.cards
         player: Player = await self.awaitable_attrs.player
         logging.info(f"Found {len(hand_cards)} cards in hand")
-        active_game: Game = await player.get_active_game(session=session)
-        active_trick = await active_game.get_active_trick(session=session)
+        
+        # Use provided trick if given, otherwise fetch it
+        if trick is None:
+            active_game: Game = await player.get_active_game(session=session)
+            active_trick = await active_game.get_active_trick(session=session)
+        else:
+            active_trick = trick
+            
         plays: list[Play] = active_trick.plays       
         trick_cards: list[PlayedCard] = []
         for play in plays:
@@ -598,6 +622,7 @@ class Sitting(Crud, AuditMixin, IdMixin):
         stmt = (
             select(Game)
             .filter(Game.number == last_game_number)
+            .filter(Game.sitting_id == self.id)
         )
         result = await session.execute(stmt)
         last_game = result.scalars().first()
@@ -668,12 +693,15 @@ class Game(Crud, AuditMixin, IdMixin):
         await session.refresh(self)
         return self
     
-    async def get_active_trick(self, session: AsyncSession) -> Trick:
+    async def get_active_trick(self, session: AsyncSession, with_for_update: bool = False) -> Trick:
         stmt = (
             select(Trick)
             .filter(Trick.game_id == self.id)
             .filter(Trick.active == True)  # todo: DONT DO "IS" HERE! (add ruff rule)
+            .order_by(Trick.number.desc())  # Get the highest-numbered active trick
         )
+        if with_for_update:
+            stmt = stmt.with_for_update()  # Row-level lock to prevent concurrent modifications
         result = await session.execute(stmt)
         active_trick = result.scalars().first()
         if active_trick is None:
@@ -681,16 +709,21 @@ class Game(Crud, AuditMixin, IdMixin):
             raise LookupError()
         return active_trick
 
-    async def create_active_trick(self, session: AsyncSession) -> Trick:
+    async def create_active_trick_in_transaction(self, session: AsyncSession) -> Trick:
+        """Create a new active trick without committing (for atomic transactions)."""
         assert self.active
-        try:
-            old_trick = await self.get_active_trick(session=session)
-            old_plays = await old_trick.awaitable_attrs.plays
-            assert len(old_plays) == 4
-            number = old_trick.number + 1
-            old_trick.active = False
-            session.add(old_trick)
-        except LookupError:
+        # Get the highest trick number for this game (regardless of active status)
+        from sqlalchemy import func, select
+        stmt = (
+            select(func.max(Trick.number))
+            .filter(Trick.game_id == self.id)
+        )
+        result = await session.execute(stmt)
+        max_number = result.scalar()
+        
+        if max_number is not None:
+            number = max_number + 1
+        else:
             number = 0
 
         new_trick = Trick(
@@ -699,9 +732,16 @@ class Game(Crud, AuditMixin, IdMixin):
             active=True,
         )
         session.add(new_trick)
+        # Don't commit here - caller will commit atomically
+        logging.info(f"Trick {number} created (will commit with transaction)")
+        return new_trick
+    
+    async def create_active_trick(self, session: AsyncSession) -> Trick:
+        """Create a new active trick and commit immediately."""
+        new_trick = await self.create_active_trick_in_transaction(session=session)
         await session.commit()
         await session.refresh(new_trick)
-        logging.info(f"Trick {number} created")
+        logging.info(f"Trick {new_trick.number} committed")
         return new_trick
 
     async def get_group(self) -> Group:
@@ -762,8 +802,11 @@ class Trick(Crud, AuditMixin, IdMixin):
             )
             previous_trick = result.scalar_one_or_none()
             if previous_trick and previous_trick.winning_player_id:
+                logging.info(f"Trick {self.number}: Using previous trick winner (player_id: {previous_trick.winning_player_id}) to start")
                 active_player = await Player.from_id(session=session, id=previous_trick.winning_player_id)
                 return active_player
+            else:
+                logging.warning(f"Trick {self.number}: Previous trick has no winner! previous_trick={previous_trick}")
         
         # For first card of first trick or continuing within a trick, use the existing logic
         if len(plays) == 0:
@@ -813,20 +856,41 @@ class Trick(Crud, AuditMixin, IdMixin):
             suit = Suit(card_data.suit)
             rank = Rank[card_data.rank]  # Use bracket notation for enum by name
             
-            # Determine if card is trump based on the ruleset
-            card = Card(suit, rank, False)  # We'll check trump status below
-            for trump_card in ruleset.trump_rank.keys():
-                if trump_card.suit == suit and trump_card.rank == rank:
-                    card = Card(suit, rank, True)
-                    break
+            # Determine if card is trump based on Doppelkopf rules
+            # Trumps are: all Queens, all Jacks, all Diamonds, and Hearts Ten
+            is_trump = (
+                rank == Rank.queen or  # All queens are trump
+                rank == Rank.jack or   # All jacks are trump
+                suit == Suit.diamonds or  # All diamonds are trump
+                (suit == Suit.hearts and rank == Rank.ten)  # Hearts ten is trump
+            )
+            card = Card(suit, rank, is_trump)
+            logging.info(f"Play {play.number}: Player {play.player_id} played {rank.name} of {suit.value} - is_trump={is_trump}")
             
             # Create a simple player object for the rules engine
             game_player = GamePlayer(str(play.player_id))
             stack.add(game_player, card)
         
+        # Log the stack before determining winner
+        logging.info(f"Stack history: {[(p.name, str(c)) for p, c in stack.history]}")
+        
+        # Debug: Check if trump cards can be found in trump_rank
+        for player, card in stack.history:
+            if card.is_trump:
+                if card in ruleset.trump_rank:
+                    logging.info(f"  Trump card {card} found in trump_rank with rank {ruleset.trump_rank[card]}")
+                else:
+                    logging.error(f"  Trump card {card} NOT FOUND in trump_rank!")
+                    # Try to find what's different
+                    for trump_card in ruleset.trump_rank.keys():
+                        if trump_card.suit == card.suit and trump_card.rank == card.rank:
+                            logging.error(f"    Found matching trump by suit/rank: {trump_card}, is_trump={trump_card.is_trump}")
+        
         # Use the rules engine to determine the winner
         winning_game_player = ruleset.winner(stack)
         winning_player_id = uuid.UUID(winning_game_player.name)
+        
+        logging.info(f"Winner determined: player_id={winning_player_id}, player_name={winning_game_player.name}")
         
         return winning_player_id
 

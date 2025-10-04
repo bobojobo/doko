@@ -186,16 +186,27 @@ async def play_card(data: request_dto.GameHandcard, session: AsyncSession, sessi
     game: orm.Game = await orm.Game.from_id(session=session, id=UUID(game_id))
     group = await game.get_group()
     player = await orm.Player.from_user_and_group(group=group, user=user, session=session)
-    trick = await game.get_active_trick(session=session)
+    
+    # Get active trick with row-level lock to prevent concurrent plays
+    trick = await game.get_active_trick(session=session, with_for_update=True)
+    logging.info(f"{user.name}: acquired lock on trick {trick.number}")
+    
+    # Query plays directly to avoid cached relationship data
+    from sqlalchemy import select
+    plays_stmt = select(orm.Play).where(orm.Play.trick_id == trick.id).with_for_update()
+    plays_result = await session.execute(plays_stmt)
+    plays: list[orm.Play] = list(plays_result.scalars().all())
+    logging.info(f"{user.name}: found {len(plays)} existing plays in trick {trick.number}")
+    
     active_player = await trick.next_player_up(session=session)
+    active_user = await orm.User.from_player_id(session=session, player_id=active_player.id)
     hand: orm.Hand = await player.awaitable_attrs.hand
     hand_cards: list[orm.HandCard] = await hand.awaitable_attrs.cards
-    plays: list[orm.Play] = await trick.awaitable_attrs.plays
 
-    logging.info(f"{user.name}: tries to play {data.rank} {data.suit}")
+    logging.info(f"{user.name}: tries to play {data.rank} {data.suit} (active player is: {active_user.name})")
 
     # checks
-    assert active_player.id == player.id, "illegal move: not that players turn"
+    assert active_player.id == player.id, f"illegal move: not that players turn (expected {active_user.name}, got {user.name})"
     assert len(plays) < 4, "illegal move: no more than 4 cards per trick"
     card_id = None
     for i, card in enumerate(hand_cards):
@@ -204,8 +215,8 @@ async def play_card(data: request_dto.GameHandcard, session: AsyncSession, sessi
             logging.info(f"Found the card in hand: {card_id}")
     assert card_id is not None, "illegal move: card not in hand"
 
-    # check if the played card is allowed by the game rules
-    valid_plays = await hand.get_valid_plays(session=session)
+    # check if the played card is allowed by the game rules (pass locked trick to avoid refetching)
+    valid_plays = await hand.get_valid_plays(session=session, trick=trick)
     logging.info(f"Received these valid plays: {valid_plays}")
     assert card_id in [valid_card.id for valid_card in valid_plays], "illegal move: card not in valid cards"
 
@@ -249,15 +260,30 @@ async def play_card(data: request_dto.GameHandcard, session: AsyncSession, sessi
         logging.info(f"Last play in trick detected! Trick {trick.number} completed.")
         # Determine the winner of the completed trick
         winning_player_id = await trick.determine_winner(session=session)
+        winning_user = await orm.User.from_player_id(session=session, player_id=winning_player_id)
+        logging.info(f"Trick {trick.number} winner: {winning_user.name} (player_id: {winning_player_id})")
         trick.winning_player_id = winning_player_id
+        trick.active = False  # Mark old trick inactive immediately
         session.add(trick)
+        
+        # Create new trick in SAME transaction to avoid gaps
+        new_trick = None
+        if not is_last_trick_in_game:
+            logging.info(f"Creating new trick after trick {trick.number}")
+            # Create new trick without committing (handled by create_active_trick_in_transaction)
+            new_trick = await game.create_active_trick_in_transaction(session=session)
+        else:
+            # Last trick completed - mark game inactive
+            logging.info(f"Game {game.id} completed! Marking game inactive.")
+            game.active = False
+            session.add(game)
+        
+        # Single atomic commit: old trick inactive + (new trick active OR game inactive)
         await session.commit()
         
         # TODO: make after trick time available as config 
         await asyncio.sleep(1)  # let users look at the last card of the trick, 
         if not is_last_trick_in_game:
-            logging.info(f"Creating new trick after trick {trick.number}")
-            new_trick = await game.create_active_trick(session=session)
             # After creating the new trick, get the correct first player
             new_first_player = await new_trick.next_player_up(session=session)
             new_first_user = await orm.User.from_player_id(session=session, player_id=new_first_player.id)

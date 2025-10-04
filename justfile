@@ -22,3 +22,15 @@ full-run:
 
 test-unit:
   uv run pytest test/unittest -v;
+
+test-api: db-up && db-down
+  uv run pytest test/apitest -v;
+
+test-json-api: db-up && db-down
+  uv run pytest test/jsonapitest -v;
+
+test-client: db-up && db-down
+  uv run pytest test/test_json_api_client -v;
+
+test-all: db-up && db-down
+  uv run pytest test -v;

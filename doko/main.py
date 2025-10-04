@@ -4,12 +4,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import FastAPI, Request, HTTPException
 from starlette import status
 
-from doko import settings, statics, router, db, orm, logging
+from doko import settings, statics, router, json_router, db, orm, logging
 from doko.libs import password_utils
 from doko.http_exception import exception_handlers
 
 app = FastAPI(title="Doko", exception_handlers=exception_handlers)
 app.mount(path=statics.PATH, app=statics.statics(), name=statics.NAME)
+app.include_router(router=json_router.json_router)
 app.include_router(router=router.router)
 
 
@@ -59,13 +60,22 @@ def login_required(path: str) -> bool:
         "/login",
         "/statics",
         "/favicon",
+        "/json/registration",
+        "/json/register",
+        "/json/login",
+        "/json/auth/login",
+        "/json/auth/logout",
+        "/json/users",
+        "/docs",
+        "/openapi.json",
+        "/redoc",
     )
 
     wildcard_404 = "/{_:path}"
     routes = [route.path for route in app.routes if route.path != wildcard_404]
 
     if path in routes:
-        no_login_required = (path == "/") or path.startswith(always_accessible_routes)
+        no_login_required = (path == "/") or (path == "/json/") or path.startswith(always_accessible_routes)
         return not no_login_required
     return False
 
@@ -89,17 +99,36 @@ async def middleware(request: Request, call_next):
             is_authenticated, detail = await authentication(session=session, session_token=session_token)
 
         if not is_authenticated:
-            response = exception_handlers[status.HTTP_401_UNAUTHORIZED](
-                request=request,
-                exc=HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=detail),
-            )
-            return response
+            # Check if this is a JSON API request
+            if request.url.path.startswith("/json/"):
+                from fastapi.responses import JSONResponse
+                return JSONResponse(
+                    {"error": "Authentication required", "detail": detail}, 
+                    status_code=status.HTTP_401_UNAUTHORIZED
+                )
+            else:
+                response = exception_handlers[status.HTTP_401_UNAUTHORIZED](
+                    request=request,
+                    exc=HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=detail),
+                )
+                return response
 
     response = await call_next(request)
     return response
 
 
 async def test_setup(session: AsyncSession) -> None:
+    from sqlalchemy import select
+    
+    # Check if test data already exists
+    stmt = select(orm.User).where(orm.User.name == "rene")
+    result = await session.execute(stmt)
+    existing_user = result.scalars().unique().first()
+    
+    if existing_user is not None:
+        logging.info("Test data already exists, skipping test-setup")
+        return
+    
     user_rene = orm.User(name="rene", password=password_utils.hash_password("123456789"))
     user_simon = orm.User(name="simon", password=password_utils.hash_password("123456789"))
     user_nadiem = orm.User(name="nadiem", password=password_utils.hash_password("123456789"))
