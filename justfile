@@ -15,7 +15,7 @@ db-down:
   docker-compose -f docker-compose.yaml down
 
 api-up:
-  uvicorn doko.main:app --reload
+  uv run uvicorn doko.main:app --reload
 
 full-run:
   docker compose up
